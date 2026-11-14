@@ -37,6 +37,12 @@ Search takes fzf-style operators: `'word` for exact, `^word` for prefix,
 ## Install
 
 ```
+cargo install ccf
+```
+
+or
+
+```
 cargo install --path .
 ```
 
