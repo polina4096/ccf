@@ -2,6 +2,7 @@ mod search;
 mod transcripts;
 
 use anyhow::Result;
+use camino::Utf8PathBuf;
 
 use self::{search::SessionSearch, transcripts::TranscriptCache};
 use crate::index::{Indexer, Session, Transcript};
@@ -14,19 +15,27 @@ pub(crate) struct App {
   pub(crate) search: SessionSearch,
 
   /// Indices into `sessions` that answer the query, best first; every one,
-  /// newest first, when the query is empty.
+  /// newest first, when the query is empty. Narrowed by `cwd_only`.
   pub(crate) matches: Vec<usize>,
   pub(crate) indexer: Indexer,
+
+  /// The directory the program was started in.
+  pub(crate) cwd: Utf8PathBuf,
+
+  /// Whether only chats from `cwd` and below are matched.
+  pub(crate) cwd_only: bool,
 }
 
 impl App {
-  pub(crate) fn new(sessions: Vec<Session>, indexer: Indexer) -> Self {
+  pub(crate) fn new(sessions: Vec<Session>, indexer: Indexer, cwd: Utf8PathBuf) -> Self {
     let mut app = Self {
       transcripts: TranscriptCache::default(),
       sessions: vec![],
       search: SessionSearch::new(),
       matches: vec![],
       indexer,
+      cwd,
+      cwd_only: false,
     };
 
     app.set_sessions(sessions);
@@ -41,7 +50,17 @@ impl App {
   }
 
   fn update_matches(&mut self) {
-    self.matches = if self.search.is_empty() { (0 .. self.sessions.len()).collect() } else { self.search.ranked() };
+    let answers = if self.search.is_empty() { (0 .. self.sessions.len()).collect() } else { self.search.ranked() };
+
+    self.matches = answers
+      .into_iter()
+      .filter(|&i| !self.cwd_only || self.sessions[i].cwd.starts_with(&self.cwd))
+      .collect();
+  }
+
+  pub(crate) fn toggle_cwd_only(&mut self) {
+    self.cwd_only = !self.cwd_only;
+    self.update_matches();
   }
 
   /// Takes in what the background has finished: search results and rescanned

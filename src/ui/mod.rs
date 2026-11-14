@@ -121,6 +121,10 @@ impl Ui {
 
       Command::Copy => self.status = selection.map(|index| copy_resume_command(&app.sessions[index])),
       Command::Rescan => app.indexer.rescan(),
+      Command::ToggleCwdOnly => {
+        app.toggle_cwd_only();
+        self.selected = 0;
+      }
     }
 
     if self.selected_index(app) != selection {

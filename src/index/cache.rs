@@ -113,8 +113,7 @@ impl Cache {
       Err(e) => return Err(e.into()),
     };
 
-    let cache =
-      serde_json::from_slice(&bytes).with_context(|| format!("{path} is unreadable; run `cff --reindex`"))?;
+    let cache = serde_json::from_slice(&bytes).with_context(|| format!("{path} is unreadable; run `cff --reindex`"))?;
 
     return Ok(cache);
   }

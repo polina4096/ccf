@@ -10,7 +10,10 @@ use tui_input::Input;
 use unicode_width::UnicodeWidthStr;
 
 use super::{ACCENT, RULE, text::fit_tail};
-use crate::{app::App, index::Session};
+use crate::{
+  app::App,
+  index::{Session, short_path},
+};
 
 /// A horizontal rule across `area`, optionally headed by an accent label.
 pub(crate) fn hrule(buf: &mut Buffer, area: Rect, label: Option<&str>) {
@@ -37,7 +40,10 @@ pub(crate) fn search(frame: &mut Frame, app: &App, query: &Input, area: Rect) {
   let right = match app.indexer.progress {
     Some((done, total)) => Line::from(vec![meter(done, total, 8).fg(ACCENT), format!(" {done}/{total} ").dim()]),
     None => {
+      let scope = if app.cwd_only { format!("in {}  ", fit_tail(&short_path(&app.cwd), 32)) } else { String::new() };
+
       Line::from(vec![
+        scope.fg(ACCENT),
         app.matches.len().to_string().into(),
         format!("/{} ", app.sessions.len()).dim(),
       ])
@@ -73,13 +79,14 @@ fn meter(done: usize, total: usize, cells: usize) -> String {
 /// Key hints on the left; on the right the most pressing note: `status`,
 /// a stopped indexer, skipped records, or `selection` when one is given.
 pub(crate) fn footer(frame: &mut Frame, app: &App, status: Option<&str>, area: Rect, selection: Option<&Session>) {
-  let keys: [(&str, &str); 7] = [
+  let keys: [(&str, &str); 8] = [
     ("⏎", "select"),
     ("⇥", "preview"),
     ("^d ^e", "scroll"),
     ("^g", "end"),
     ("^y", "copy"),
     ("^r", "rescan"),
+    ("^t", if app.cwd_only { "everywhere" } else { "here" }),
     ("esc", "quit"),
   ];
 

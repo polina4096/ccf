@@ -3,7 +3,7 @@ mod content;
 mod indexer;
 mod parse;
 
-use camino::Utf8PathBuf;
+use camino::{Utf8Path, Utf8PathBuf};
 use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 
@@ -52,12 +52,8 @@ impl Session {
     return self.id.get(.. 8).unwrap_or(&self.id);
   }
 
-  /// The working directory with the home prefix folded to `~`.
   pub(crate) fn short_cwd(&self) -> String {
-    return dirs::home_dir()
-      .and_then(|home| self.cwd.strip_prefix(home).ok())
-      .map(|rest| if rest.as_str().is_empty() { "~".to_string() } else { format!("~/{rest}") })
-      .unwrap_or_else(|| self.cwd.to_string());
+    return short_path(&self.cwd);
   }
 
   /// Last path component, or `~` for the home directory itself.
@@ -67,4 +63,12 @@ impl Session {
       _ => self.cwd.file_name().unwrap_or("/").to_string(),
     };
   }
+}
+
+/// `path` with the home prefix folded to `~`.
+pub(crate) fn short_path(path: &Utf8Path) -> String {
+  return dirs::home_dir()
+    .and_then(|home| path.strip_prefix(home).ok())
+    .map(|rest| if rest.as_str().is_empty() { "~".to_string() } else { format!("~/{rest}") })
+    .unwrap_or_else(|| path.to_string());
 }

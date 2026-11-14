@@ -4,6 +4,7 @@ mod ui;
 mod utils;
 
 use anyhow::Result;
+use camino::Utf8PathBuf;
 use clap::Parser;
 
 use crate::app::App;
@@ -34,7 +35,8 @@ fn main() -> Result<()> {
 
   let indexer = index::Indexer::start(cli.reindex);
   let sessions = if cli.reindex { vec![] } else { index::cached_sessions()? };
-  let mut app = App::new(sessions, indexer);
+  let cwd = Utf8PathBuf::try_from(std::env::current_dir()?)?;
+  let mut app = App::new(sessions, indexer, cwd);
 
   match ui::run(&mut app)? {
     Some(session) if cli.print => println!("{}", session.id),

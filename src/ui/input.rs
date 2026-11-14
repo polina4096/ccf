@@ -25,6 +25,7 @@ pub(crate) enum Command {
 
   Copy,
   Rescan,
+  ToggleCwdOnly,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -79,6 +80,7 @@ const BINDINGS: &[(&[Key], Command)] = &[
   (&[Ctrl(Char('u'))], Command::EditQuery(InputRequest::DeleteLine)),
   (&[Ctrl(Char('y'))], Command::Copy),
   (&[Ctrl(Char('r'))], Command::Rescan),
+  (&[Ctrl(Char('t'))], Command::ToggleCwdOnly),
 ];
 
 pub(crate) fn command(key: KeyEvent) -> Option<Command> {

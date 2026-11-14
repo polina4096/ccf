@@ -112,7 +112,12 @@ pub(crate) fn draw(frame: &mut Frame, app: &App, selected: usize, scroll: &mut u
   let now = Zoned::now();
   let slots = slots(app, app.search.is_empty(), &now);
   if slots.is_empty() {
-    let message = if app.sessions.is_empty() { "no chats yet" } else { "nothing matches" };
+    let message = match () {
+      () if app.sessions.is_empty() => "no chats yet",
+      () if app.search.is_empty() => "no chats in this directory",
+      () => "nothing matches",
+    };
+
     frame.render_widget(Line::from(message.dim().italic()).centered(), Rect { y: area.y + 1, height: 1, ..area });
     return;
   }

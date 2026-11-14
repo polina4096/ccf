@@ -24,6 +24,7 @@ cff --verify   rebuild the index and report any records that could not be read
 | ctrl-d ctrl-e | scroll the preview, ctrl-g jumps to its end |
 | ctrl-y | copy the resume command |
 | ctrl-r | rescan |
+| ctrl-t | show only chats from the current directory and below |
 | esc | clear the search, then quit |
 
 Search takes fzf-style operators: `'word` for exact, `^word` for prefix,
