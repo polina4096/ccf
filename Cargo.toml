@@ -3,6 +3,10 @@ name = "ccfind"
 version = "0.1.0"
 edition = "2024"
 description = "Search your local Claude Code conversations from the terminal"
+keywords = ["claude", "tui", "search"]
+categories = ["command-line-utilities"]
+repository = "https://github.com/polina4096/ccfind"
+readme = "README.md"
 license = "Unlicense"
 
 [lints.clippy]
