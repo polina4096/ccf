@@ -1,6 +1,6 @@
 [package]
 name = "ccf"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 rust-version = "1.100"
 description = "Search your local Claude Code conversations from the terminal"
@@ -47,6 +47,10 @@ arboard = "3"
 camino = { version = "1", features = ["serde1"] }
 clap = { version = "4", features = ["derive"] }
 dirs = "6"
+documented = "0.10.0"
+edit = "0.1.5"
+etcetera = "0.11.0"
+figment2 = { version = "0.11.5", features = ["toml", "env"] }
 fs-err = "3"
 jiff = { version = "0.2", features = ["serde"] }
 memchr = "2"
@@ -56,7 +60,9 @@ ratatui = "0.30"
 rayon = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["raw_value"] }
+smart-default = "0.7.1"
 textwrap = { version = "0.16", default-features = false, features = ["unicode-width"] }
+toml_edit = { version = "0.25.19", features = ["serde"] }
 tui-input = { version = "0.15.5", default-features = false }
 unicode-truncate = "2"
 unicode-width = "0.2"

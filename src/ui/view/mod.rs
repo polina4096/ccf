@@ -18,9 +18,6 @@ pub(crate) const ACCENT: Color = Color::Rgb(217, 119, 87);
 pub(crate) const RULE: &str = "─";
 pub(crate) const BAR: &str = "▎";
 
-/// Below this many columns the preview pane is not worth its space.
-const PREVIEW_MIN_WIDTH: u16 = 110;
-
 pub(crate) fn draw(frame: &mut Frame, app: &App, ui: &mut Ui) {
   let [search, header, body, foot_rule, footer] = Layout::vertical([
     Constraint::Length(1),
@@ -31,7 +28,7 @@ pub(crate) fn draw(frame: &mut Frame, app: &App, ui: &mut Ui) {
   ])
   .areas(frame.area());
 
-  let with_preview = ui.preview.show && body.width >= PREVIEW_MIN_WIDTH;
+  let with_preview = ui.preview.show && body.width >= ui.config.preview_min_width;
   let [list, preview] = if with_preview {
     Layout::horizontal([Constraint::Percentage(50), Constraint::Fill(1)]).areas(body)
   }
@@ -75,7 +72,7 @@ pub(crate) fn draw(frame: &mut Frame, app: &App, ui: &mut Ui) {
     };
 
     if let Some(index) = selection {
-      preview::draw(frame, app, index, &mut ui.preview, pane);
+      preview::draw(frame, app, index, &mut ui.preview, ui.config.preview_message_lines, pane);
     }
   }
 

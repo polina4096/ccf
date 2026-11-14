@@ -14,9 +14,8 @@ use ratatui::{
 use tui_input::{Input, InputRequest};
 
 use self::{input::Command, view::PreviewPane};
-use crate::{app::App, index::Session};
+use crate::{app::App, config::Config, index::Session};
 
-#[derive(Default)]
 pub(crate) struct Ui {
   /// The search line: the query's text and the cursor in it.
   query: Input,
@@ -30,12 +29,21 @@ pub(crate) struct Ui {
 
   /// A one-off note for the footer.
   status: Option<String>,
+  config: Config,
 }
 
 /// Runs the picker on the terminal until a chat is chosen (`Some`) or the user quits (`None`).
-pub(crate) fn run(app: &mut App) -> Result<Option<Session>> {
+pub(crate) fn run(app: &mut App, config: Config) -> Result<Option<Session>> {
   let mut terminal = ratatui::init();
-  let output = Ui::default().run(&mut terminal, app);
+  let ui = Ui {
+    query: Input::default(),
+    selected: 0,
+    list_scroll: 0,
+    preview: PreviewPane::new(config.show_preview),
+    status: None,
+    config,
+  };
+  let output = ui.run(&mut terminal, app);
   ratatui::restore();
 
   return output;

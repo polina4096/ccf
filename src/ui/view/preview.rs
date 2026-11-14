@@ -31,13 +31,11 @@ pub(crate) struct PreviewPane {
   to_end: bool,
 }
 
-impl Default for PreviewPane {
-  fn default() -> Self {
-    return Self { show: true, scroll: 0, to_end: false };
-  }
-}
-
 impl PreviewPane {
+  pub(crate) fn new(show: bool) -> Self {
+    return Self { show, scroll: 0, to_end: false };
+  }
+
   pub(crate) fn scroll_by(&mut self, delta: i16) {
     self.scroll = self.scroll.saturating_add_signed(delta);
     self.to_end = false;
@@ -58,11 +56,15 @@ impl PreviewPane {
 /// Bar, role label and a space: the indent every transcript line hangs from.
 const GUTTER: usize = 9;
 
-/// Lines shown per message before it is cut with `…`.
-const LINES_PER_MESSAGE: usize = 14;
-
 /// Draws the chat at `index` of the app's sessions.
-pub(crate) fn draw(frame: &mut Frame, app: &App, index: usize, pane: &mut PreviewPane, area: Rect) {
+pub(crate) fn draw(
+  frame: &mut Frame,
+  app: &App,
+  index: usize,
+  pane: &mut PreviewPane,
+  lines_per_message: usize,
+  area: Rect,
+) {
   let session = &app.sessions[index];
   let snippet = app.search.snippet(&app.sessions, index, (area.width as usize).saturating_sub(6));
 
@@ -88,7 +90,7 @@ pub(crate) fn draw(frame: &mut Frame, app: &App, index: usize, pane: &mut Previe
   );
 
   let transcript = app.transcript(index);
-  let lines = transcript_lines(transcript, pane, body);
+  let lines = transcript_lines(transcript, pane, lines_per_message, body);
   if pane.to_end && transcript.is_some() {
     pane.scroll = (lines.len() as u16).saturating_sub(body.height);
     pane.to_end = false;
@@ -174,7 +176,12 @@ fn snippet_line((text, hit): (String, Range<usize>)) -> Line<'static> {
 
 /// The transcript as screen lines, built only as far as the screen can show
 /// unless the pane is about to jump to the end.
-fn transcript_lines(transcript: Option<&Result<Transcript>>, pane: &PreviewPane, body: Rect) -> Vec<Line<'static>> {
+fn transcript_lines(
+  transcript: Option<&Result<Transcript>>,
+  pane: &PreviewPane,
+  lines_per_message: usize,
+  body: Rect,
+) -> Vec<Line<'static>> {
   let budget = if pane.to_end { usize::MAX } else { pane.scroll as usize + body.height as usize };
   let width = (body.width as usize).saturating_sub(GUTTER).max(10);
   let note = |text: String| vec![Line::from(text.dim().italic())];
@@ -188,14 +195,14 @@ fn transcript_lines(transcript: Option<&Result<Transcript>>, pane: &PreviewPane,
   return transcript
     .messages
     .iter()
-    .flat_map(|(role, text)| message_lines(*role, text, width).into_iter().chain([Line::default()]))
+    .flat_map(|(role, text)| message_lines(*role, text, width, lines_per_message).into_iter().chain([Line::default()]))
     .take(budget)
     .collect();
 }
 
-/// One message as gutter lines: the role label on the first, `…` after the
-/// limit.
-fn message_lines(role: Role, text: &str, width: usize) -> Vec<Line<'static>> {
+/// One message as gutter lines: the role label on the first, `…` after
+/// `limit` of them.
+fn message_lines(role: Role, text: &str, width: usize, limit: usize) -> Vec<Line<'static>> {
   let (tag, bar_style, text_style) = match role {
     Role::User => ("you", Style::new().fg(ACCENT), Style::new()),
     Role::Assistant => ("claude", Style::new().dim(), Style::new().dim()),
@@ -205,14 +212,14 @@ fn message_lines(role: Role, text: &str, width: usize) -> Vec<Line<'static>> {
     .lines()
     .filter(|line| !line.trim().is_empty())
     .flat_map(|line| textwrap::wrap(line.trim_end(), width))
-    .take(LINES_PER_MESSAGE + 1)
+    .take(limit + 1)
     .map(String::from)
     .collect();
-  let cut = (wrapped.len() > LINES_PER_MESSAGE).then(|| gutter_line(None, bar_style, "…".dim()));
+  let cut = (wrapped.len() > limit).then(|| gutter_line(None, bar_style, "…".dim()));
 
   return wrapped
     .into_iter()
-    .take(LINES_PER_MESSAGE)
+    .take(limit)
     .enumerate()
     .map(|(i, line)| gutter_line((i == 0).then_some(tag), bar_style, Span::styled(line, text_style)))
     .chain(cut)

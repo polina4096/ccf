@@ -15,8 +15,6 @@ use super::{
   cache::{Cache, Entry, Paths},
 };
 
-const RESCAN_EVERY: Duration = Duration::from_secs(5);
-
 /// A completed pass over the session files.
 #[derive(Default)]
 pub(crate) struct ScanOutput {
@@ -49,12 +47,12 @@ pub(crate) struct Indexer {
 }
 
 impl Indexer {
-  pub(crate) fn start(rebuild: bool) -> Self {
+  pub(crate) fn start(rebuild: bool, rescan_every: Duration) -> Self {
     let (reports_tx, reports) = mpsc::channel();
     let (rebuilds, rebuilds_rx) = mpsc::channel();
 
     std::thread::spawn(move || {
-      if let Err(e) = watch(&reports_tx, &rebuilds_rx, rebuild) {
+      if let Err(e) = watch(&reports_tx, &rebuilds_rx, rebuild, rescan_every) {
         let _ = reports_tx.send(Report::Failed(format!("{e:#}")));
       }
     });
@@ -108,7 +106,7 @@ impl Indexer {
 }
 
 /// A pass at once, then one every few seconds or on request.
-fn watch(reports: &Sender<Report>, rebuilds: &Receiver<()>, mut rebuild: bool) -> Result<()> {
+fn watch(reports: &Sender<Report>, rebuilds: &Receiver<()>, mut rebuild: bool, rescan_every: Duration) -> Result<()> {
   let paths = Paths::locate()?;
   let on_progress = |done, total| {
     let _ = reports.send(Report::Scanned { done, total });
@@ -121,7 +119,7 @@ fn watch(reports: &Sender<Report>, rebuilds: &Receiver<()>, mut rebuild: bool) -
       return Ok(());
     }
 
-    rebuild = match rebuilds.recv_timeout(RESCAN_EVERY) {
+    rebuild = match rebuilds.recv_timeout(rescan_every) {
       Ok(()) => true,
       Err(RecvTimeoutError::Timeout) => false,
       Err(RecvTimeoutError::Disconnected) => return Ok(()),

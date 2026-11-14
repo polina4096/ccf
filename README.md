@@ -1,4 +1,4 @@
-# cff
+# ccf
 
 Search your local Claude Code conversations from the terminal.
 
@@ -7,10 +7,11 @@ the chat in its directory. Chats are found by title, project, branch, or any
 words that appear anywhere in the conversation.
 
 ```
-cff            open the picker
-cff --print    print the chosen session id instead of resuming it
-cff --reindex  rebuild the index from scratch
-cff --verify   rebuild the index and report any records that could not be read
+ccf            open the picker
+ccf --print    print the chosen session id instead of resuming it
+ccf --reindex  rebuild the index from scratch
+ccf --verify   rebuild the index and report any records that could not be read
+ccf --open-config  edit the configuration file
 ```
 
 ## Keys
@@ -37,9 +38,12 @@ cargo install --path .
 ```
 
 The first launch indexes every session in `~/.claude/projects`. The index
-persists in `~/Library/Caches/cff` on macOS or `~/.cache/cff` on Linux
+persists in `~/Library/Caches/ccf` on macOS or `~/.cache/ccf` on Linux
 (safe to delete, rebuilt on the next launch), and only changed chats are
 re-read afterwards, in the background.
+
+Settings live in `~/.config/ccf/config.toml`, written with commented defaults
+on first launch.
 
 ## License
 
