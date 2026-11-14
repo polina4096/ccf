@@ -19,7 +19,10 @@ ccf --open-config  edit the configuration file
 | key | action |
 | --- | --- |
 | enter | resume the chat (`claude --resume`) in its directory |
-| tab | toggle the preview |
+| tab | move focus to the preview, where ↑ ↓ pgup pgdn home end scroll it; tab or esc returns |
+| shift-tab | toggle the preview |
+| click | focus the pane under the pointer; on a chat, select it |
+| wheel | scroll the pane under the pointer |
 | ↑ ↓ / ctrl-p ctrl-n | move |
 | ← → | move in the search, by word with alt or ctrl |
 | ctrl-d ctrl-e | scroll the preview, ctrl-g jumps to its end |

@@ -18,38 +18,57 @@ use super::{
 };
 use crate::{
   app::App,
+  config::{Config, MessageCut, MessageOrder},
   index::{Role, Session, Transcript},
 };
 
 /// Whether the pane is shown and how far its transcript is scrolled.
 pub(crate) struct PreviewPane {
   pub(crate) show: bool,
-  scroll: u16,
 
-  /// The first frame that has the transcript scrolls to its last line and
-  /// clears this.
-  to_end: bool,
+  /// Whether the movement keys scroll this pane instead of moving the list
+  /// cursor.
+  pub(crate) focused: bool,
+
+  /// Where the pane was last drawn; empty while it is not on screen.
+  pub(crate) area: Rect,
+
+  /// First transcript line on screen. Drawing pulls a value past the last
+  /// screenful back to it.
+  scroll: u16,
 }
 
 impl PreviewPane {
   pub(crate) fn new(show: bool) -> Self {
-    return Self { show, scroll: 0, to_end: false };
+    return Self {
+      show,
+      focused: false,
+      area: Rect::default(),
+      scroll: 0,
+    };
+  }
+
+  /// Focusing a hidden pane shows it.
+  pub(crate) fn toggle_focus(&mut self) {
+    self.focused = !self.focused;
+    self.show |= self.focused;
   }
 
   pub(crate) fn scroll_by(&mut self, delta: i16) {
     self.scroll = self.scroll.saturating_add_signed(delta);
-    self.to_end = false;
   }
 
   pub(crate) fn scroll_to_top(&mut self) {
     self.scroll = 0;
-    self.to_end = false;
+  }
+
+  pub(crate) fn scroll_to_end(&mut self) {
+    self.scroll = u16::MAX;
   }
 
   /// Jumps to the end, or back to the top when already away from it.
   pub(crate) fn toggle_end(&mut self) {
-    self.to_end = self.scroll == 0;
-    self.scroll = 0;
+    self.scroll = if self.scroll == 0 { u16::MAX } else { 0 };
   }
 }
 
@@ -62,8 +81,9 @@ pub(crate) fn draw(
   app: &App,
   index: usize,
   pane: &mut PreviewPane,
-  lines_per_message: usize,
+  config: &Config,
   area: Rect,
+  rule_style: Style,
 ) {
   let session = &app.sessions[index];
   let snippet = app.search.snippet(&app.sessions, index, (area.width as usize).saturating_sub(6));
@@ -87,13 +107,13 @@ pub(crate) fn draw(
       ..rule
     },
     None,
+    rule_style,
   );
 
   let transcript = app.transcript(index);
-  let lines = transcript_lines(transcript, pane, lines_per_message, body);
-  if pane.to_end && transcript.is_some() {
-    pane.scroll = (lines.len() as u16).saturating_sub(body.height);
-    pane.to_end = false;
+  let lines = transcript_lines(transcript, pane, config, body);
+  if matches!(transcript, Some(Ok(_))) {
+    pane.scroll = pane.scroll.min((lines.len() as u16).saturating_sub(body.height));
   }
   frame.render_widget(Paragraph::new(lines).scroll((pane.scroll, 0)), body);
 }
@@ -174,15 +194,14 @@ fn snippet_line((text, hit): (String, Range<usize>)) -> Line<'static> {
   ]);
 }
 
-/// The transcript as screen lines, built only as far as the screen can show
-/// unless the pane is about to jump to the end.
+/// The transcript as screen lines, built only as far as the screen shows.
 fn transcript_lines(
   transcript: Option<&Result<Transcript>>,
   pane: &PreviewPane,
-  lines_per_message: usize,
+  config: &Config,
   body: Rect,
 ) -> Vec<Line<'static>> {
-  let budget = if pane.to_end { usize::MAX } else { pane.scroll as usize + body.height as usize };
+  let budget = pane.scroll as usize + body.height as usize;
   let width = (body.width as usize).saturating_sub(GUTTER).max(10);
   let note = |text: String| vec![Line::from(text.dim().italic())];
 
@@ -192,37 +211,60 @@ fn transcript_lines(
     Some(Ok(transcript)) => transcript,
   };
 
-  return transcript
-    .messages
-    .iter()
-    .flat_map(|(role, text)| message_lines(*role, text, width, lines_per_message).into_iter().chain([Line::default()]))
+  let messages: Box<dyn Iterator<Item = &(Role, String)>> = match config.preview_order {
+    MessageOrder::OldestFirst => Box::new(transcript.messages.iter()),
+    MessageOrder::NewestFirst => Box::new(transcript.messages.iter().rev()),
+  };
+
+  return messages
+    .flat_map(|(role, text)| message_lines(*role, text, width, config).into_iter().chain([Line::default()]))
     .take(budget)
     .collect();
 }
 
-/// One message as gutter lines: the role label on the first, `…` after
-/// `limit` of them.
-fn message_lines(role: Role, text: &str, width: usize, limit: usize) -> Vec<Line<'static>> {
-  let (tag, bar_style, text_style) = match role {
-    Role::User => ("you", Style::new().fg(ACCENT), Style::new()),
-    Role::Assistant => ("claude", Style::new().dim(), Style::new().dim()),
+/// One message as gutter lines, the role label on the first. A message longer
+/// than the configured limit has a `…` line where it was cut.
+fn message_lines(role: Role, text: &str, width: usize, config: &Config) -> Vec<Line<'static>> {
+  let (tag, bar_style, text_style, cut) = match role {
+    Role::User => ("you", Style::new().fg(ACCENT), Style::new(), MessageCut::End),
+    Role::Assistant => ("claude", Style::new().dim(), Style::new().dim(), config.preview_claude_cut),
   };
 
-  let wrapped: Vec<String> = text
+  let limit = config.preview_message_lines;
+  let wrapped = text
     .lines()
     .filter(|line| !line.trim().is_empty())
     .flat_map(|line| textwrap::wrap(line.trim_end(), width))
-    .take(limit + 1)
-    .map(String::from)
-    .collect();
-  let cut = (wrapped.len() > limit).then(|| gutter_line(None, bar_style, "…".dim()));
+    .map(String::from);
 
-  return wrapped
+  // `None` is the line standing for what was cut.
+  let rows: Vec<Option<String>> = match cut {
+    MessageCut::End => wrapped.take(limit + 1).enumerate().map(|(i, line)| (i < limit).then_some(line)).collect(),
+
+    // The tail is only known once the whole message is wrapped.
+    MessageCut::Middle => {
+      let lines: Vec<String> = wrapped.collect();
+      if lines.len() <= limit {
+        lines.into_iter().map(Some).collect()
+      }
+      else {
+        let head = lines.iter().take(limit.div_ceil(2)).cloned().map(Some);
+        let tail = lines.iter().skip(lines.len() - limit / 2).cloned().map(Some);
+
+        head.chain([None]).chain(tail).collect()
+      }
+    }
+  };
+
+  return rows
     .into_iter()
-    .take(limit)
     .enumerate()
-    .map(|(i, line)| gutter_line((i == 0).then_some(tag), bar_style, Span::styled(line, text_style)))
-    .chain(cut)
+    .map(|(i, row)| {
+      match row {
+        Some(line) => gutter_line((i == 0).then_some(tag), bar_style, Span::styled(line, text_style)),
+        None => gutter_line(None, bar_style, "…".dim()),
+      }
+    })
     .collect();
 }
 

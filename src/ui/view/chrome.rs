@@ -13,10 +13,11 @@ use super::{ACCENT, RULE, text::fit_tail};
 use crate::{
   app::App,
   index::{Session, short_path},
+  ui::Ui,
 };
 
 /// A horizontal rule across `area`, optionally headed by an accent label.
-pub(crate) fn hrule(buf: &mut Buffer, area: Rect, label: Option<&str>) {
+pub(crate) fn hrule(buf: &mut Buffer, area: Rect, label: Option<&str>, style: Style) {
   let mut spans: Vec<Span> = vec![" ".into()];
   let mut used = 1;
   if let Some(label) = label {
@@ -25,14 +26,14 @@ pub(crate) fn hrule(buf: &mut Buffer, area: Rect, label: Option<&str>) {
     used += label.width() + 1;
   }
 
-  spans.push(RULE.repeat((area.width as usize).saturating_sub(used + 1)).dim());
+  spans.push(Span::styled(RULE.repeat((area.width as usize).saturating_sub(used + 1)), style));
 
   Line::from(spans).render(area, buf);
 }
 
-pub(crate) fn vrule(buf: &mut Buffer, area: Rect) {
+pub(crate) fn vrule(buf: &mut Buffer, area: Rect, symbol: &str, style: Style) {
   for y in area.y .. area.bottom() {
-    buf[(area.x, y)].set_symbol("│").set_style(Style::new().dim());
+    buf[(area.x, y)].set_symbol(symbol).set_style(style);
   }
 }
 
@@ -76,12 +77,13 @@ fn meter(done: usize, total: usize, cells: usize) -> String {
   return format!("{}{}", "▰".repeat(filled), "▱".repeat(cells - filled));
 }
 
-/// Key hints on the left; on the right the most pressing note: `status`,
+/// Key hints on the left; on the right the most pressing note: the status,
 /// a stopped indexer, skipped records, or `selection` when one is given.
-pub(crate) fn footer(frame: &mut Frame, app: &App, status: Option<&str>, area: Rect, selection: Option<&Session>) {
-  let keys: [(&str, &str); 8] = [
+pub(crate) fn footer(frame: &mut Frame, app: &App, ui: &Ui, area: Rect, selection: Option<&Session>) {
+  let keys: [(&str, &str); 9] = [
     ("⏎", "select"),
-    ("⇥", "preview"),
+    ("⇥", if ui.preview.focused { "list" } else { "chat" }),
+    ("⇧⇥", "preview"),
     ("^d ^e", "scroll"),
     ("^g", "end"),
     ("^y", "copy"),
@@ -104,7 +106,7 @@ pub(crate) fn footer(frame: &mut Frame, app: &App, status: Option<&str>, area: R
   let dim = Style::new().dim();
   let warnings = app.indexer.warnings.len();
   let note = None
-    .or(status.map(|status| (status.to_string(), accent)))
+    .or(ui.status.clone().map(|status| (status, accent)))
     .or(app.indexer.failure.as_ref().map(|why| (format!("indexer stopped: {why}"), accent)))
     .or((warnings > 0).then(|| (format!("{warnings} files with skipped records, see ccf --verify"), dim)))
     .or(selection.map(|s| (format!("{}  {}", s.short_cwd(), s.short_id()), dim)));

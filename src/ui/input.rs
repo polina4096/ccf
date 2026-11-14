@@ -1,6 +1,6 @@
 use ratatui::crossterm::event::{
   KeyCode,
-  KeyCode::{Backspace, Char, Delete, Down, End, Enter, Esc, Home, Left, PageDown, PageUp, Right, Tab, Up},
+  KeyCode::{BackTab, Backspace, Char, Delete, Down, End, Enter, Esc, Home, Left, PageDown, PageUp, Right, Tab, Up},
   KeyEvent, KeyModifiers,
 };
 use tui_input::InputRequest;
@@ -13,8 +13,9 @@ pub(crate) enum Command {
   Quit,
   Choose,
   TogglePreview,
+  TogglePreviewFocus,
 
-  Move(isize),
+  Move(i16),
   First,
   Last,
 
@@ -58,7 +59,8 @@ const BINDINGS: &[(&[Key], Command)] = &[
   (&[Code(Esc)], Command::Cancel),
   (&[Ctrl(Char('c'))], Command::Quit),
   (&[Code(Enter)], Command::Choose),
-  (&[Code(Tab)], Command::TogglePreview),
+  (&[Code(Tab)], Command::TogglePreviewFocus),
+  (&[Code(BackTab)], Command::TogglePreview),
   (&[Code(Down), Ctrl(Char('n')), Ctrl(Char('j'))], Command::Move(1)),
   (&[Code(Up), Ctrl(Char('p')), Ctrl(Char('k'))], Command::Move(-1)),
   (&[Code(PageDown)], Command::Move(10)),

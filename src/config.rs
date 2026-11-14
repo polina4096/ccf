@@ -10,13 +10,27 @@ use serde::{Deserialize, Serialize};
 use smart_default::SmartDefault;
 use toml_edit::DocumentMut;
 
+#[derive(Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum MessageOrder {
+  OldestFirst,
+  NewestFirst,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum MessageCut {
+  End,
+  Middle,
+}
+
 #[derive(Clone, SmartDefault, Deserialize, Serialize, DocumentedFields)]
 #[serde(default, deny_unknown_fields)]
 pub(crate) struct Config {
   /// Whether to start with only the chats from the current directory and below; ctrl-t switches.
   pub(crate) cwd_only: bool,
 
-  /// Whether to start with the preview pane shown; tab switches.
+  /// Whether to start with the preview pane shown; shift-tab switches.
   #[default = true]
   pub(crate) show_preview: bool,
 
@@ -27,6 +41,14 @@ pub(crate) struct Config {
   /// How many lines of each message the preview shows before cutting it.
   #[default = 14]
   pub(crate) preview_message_lines: usize,
+
+  /// Which message the preview starts with: "oldest-first" reads down as the chat went, "newest-first" puts the latest message on top.
+  #[default(MessageOrder::OldestFirst)]
+  pub(crate) preview_order: MessageOrder,
+
+  /// Where a long message from Claude is cut in the preview: "end" keeps its first lines, "middle" keeps its first and last.
+  #[default(MessageCut::End)]
+  pub(crate) preview_claude_cut: MessageCut,
 
   /// How often to look for new and changed chats, in seconds.
   #[default = 5]

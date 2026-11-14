@@ -15,6 +15,45 @@ use super::{
 };
 use crate::{app::App, index::Session};
 
+/// How far the list is scrolled and where it was last drawn.
+pub(crate) struct ListPane {
+  /// First list line on screen.
+  scroll: u16,
+
+  /// Whether drawing scrolls the cursor into sight.
+  pub(crate) follows_cursor: bool,
+
+  /// Where the list was last drawn.
+  pub(crate) area: Rect,
+
+  /// The index into the app's sessions drawn on each line of `area`; `None` on a header or a gap.
+  rows: Vec<Option<usize>>,
+}
+
+impl ListPane {
+  pub(crate) fn new() -> Self {
+    return Self {
+      scroll: 0,
+      follows_cursor: true,
+      area: Rect::default(),
+      rows: vec![],
+    };
+  }
+
+  /// Scrolling by hand leaves the cursor wherever it is, on screen or off.
+  pub(crate) fn scroll_by(&mut self, delta: i16) {
+    self.scroll = self.scroll.saturating_add_signed(delta);
+    self.follows_cursor = false;
+  }
+
+  /// The index into the app's sessions drawn on screen line `y`.
+  pub(crate) fn session_at(&self, y: u16) -> Option<usize> {
+    let row = y.checked_sub(self.area.y)?;
+
+    return self.rows.get(usize::from(row)).copied().flatten();
+  }
+}
+
 /// Cell widths of the columns; zero hides a column.
 pub(crate) struct Columns {
   title: usize,
@@ -108,7 +147,10 @@ fn slots(app: &App, grouped: bool, now: &Zoned) -> Vec<Slot> {
     .collect();
 }
 
-pub(crate) fn draw(frame: &mut Frame, app: &App, selected: usize, scroll: &mut u16, area: Rect, columns: &Columns) {
+pub(crate) fn draw(frame: &mut Frame, app: &App, selected: usize, pane: &mut ListPane, area: Rect, columns: &Columns) {
+  pane.area = area;
+  pane.rows.clear();
+
   let now = Zoned::now();
   let slots = slots(app, app.search.is_empty(), &now);
   if slots.is_empty() {
@@ -124,11 +166,15 @@ pub(crate) fn draw(frame: &mut Frame, app: &App, selected: usize, scroll: &mut u
 
   let current = app.matches.get(selected).copied();
   let cursor = slots.iter().position(|slot| matches!(slot, Slot::Item(i) if Some(*i) == current)).unwrap_or(0);
-  // The first chat brings the header above it along.
-  let from = if selected == 0 { 0 } else { *scroll };
+  let total = slots.len() as u16;
+  if pane.follows_cursor {
+    // The first chat brings the header above it along.
+    let from = if selected == 0 { 0 } else { pane.scroll };
+    pane.scroll = scroll_to_show(from, cursor as u16, area.height);
+  }
 
-  *scroll = scroll_to_show(from, cursor as u16, area.height, slots.len() as u16);
-  let scroll = *scroll as usize;
+  pane.scroll = pane.scroll.min(total.saturating_sub(area.height));
+  let scroll = pane.scroll as usize;
 
   let list = Rect {
     width: area.width.saturating_sub(1),
@@ -137,9 +183,14 @@ pub(crate) fn draw(frame: &mut Frame, app: &App, selected: usize, scroll: &mut u
 
   for (index, slot) in slots.iter().enumerate().skip(scroll).take(area.height as usize) {
     let at = Rect::new(list.x, area.y + (index - scroll) as u16, list.width, 1);
+    pane.rows.push(match slot {
+      Slot::Item(i) => Some(*i),
+      Slot::Gap | Slot::Header(_) => None,
+    });
+
     match slot {
       Slot::Gap => {}
-      Slot::Header(label) => chrome::hrule(frame.buffer_mut(), at, Some(label)),
+      Slot::Header(label) => chrome::hrule(frame.buffer_mut(), at, Some(label), Style::new().dim()),
       Slot::Item(i) => {
         let session = &app.sessions[*i];
         let hits = app.search.match_indices(&session.title);
@@ -158,7 +209,7 @@ pub(crate) fn draw(frame: &mut Frame, app: &App, selected: usize, scroll: &mut u
 
 /// `scroll` moved only as far as keeps `cursor` inside a two-line margin, so
 /// the list holds still while the cursor travels inside it.
-fn scroll_to_show(mut scroll: u16, cursor: u16, height: u16, total: u16) -> u16 {
+fn scroll_to_show(mut scroll: u16, cursor: u16, height: u16) -> u16 {
   let margin = 2.min(height / 4);
   if cursor + 1 + margin > scroll + height {
     scroll = cursor + 1 + margin - height;
@@ -168,7 +219,7 @@ fn scroll_to_show(mut scroll: u16, cursor: u16, height: u16, total: u16) -> u16 
     scroll = cursor.saturating_sub(margin);
   }
 
-  return scroll.min(total.saturating_sub(height));
+  return scroll;
 }
 
 fn scrollbar(buf: &mut Buffer, area: Rect, scroll: u16, total: u16) {

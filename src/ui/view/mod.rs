@@ -7,10 +7,10 @@ mod time;
 use ratatui::{
   Frame,
   layout::{Constraint, Layout, Rect},
-  style::Color,
+  style::{Color, Style},
 };
 
-pub(crate) use self::preview::PreviewPane;
+pub(crate) use self::{list::ListPane, preview::PreviewPane};
 use super::Ui;
 use crate::app::App;
 
@@ -36,6 +36,15 @@ pub(crate) fn draw(frame: &mut Frame, app: &App, ui: &mut Ui) {
     Layout::horizontal([Constraint::Fill(1), Constraint::Length(0)]).areas(body)
   };
 
+  ui.preview.area = preview;
+  if !with_preview {
+    ui.preview.focused = false;
+  }
+
+  // A focused preview is framed in the accent colour and the list beside it fades.
+  let dim = Style::new().dim();
+  let (vrule, frame_style) = if ui.preview.focused { ("┃", Style::new().fg(ACCENT)) } else { ("│", dim) };
+
   let columns = list::Columns::for_width(list.width.saturating_sub(1));
 
   chrome::search(frame, app, &ui.query, search);
@@ -57,14 +66,19 @@ pub(crate) fn draw(frame: &mut Frame, app: &App, ui: &mut Ui) {
       ..header
     },
     None,
+    frame_style,
   );
 
-  list::draw(frame, app, ui.selected, &mut ui.list_scroll, list, &columns);
+  list::draw(frame, app, ui.selected, &mut ui.list, list, &columns);
+
+  if ui.preview.focused {
+    frame.buffer_mut().set_style(Rect { y: header.y, height: header.height + list.height, ..list }, dim);
+  }
 
   let selection = ui.selected_index(app);
 
   if with_preview {
-    chrome::vrule(frame.buffer_mut(), Rect { x: preview.x + 1, width: 1, ..preview });
+    chrome::vrule(frame.buffer_mut(), Rect { x: preview.x + 1, width: 1, ..preview }, vrule, frame_style);
     let pane = Rect {
       x: preview.x + 3,
       width: preview.width.saturating_sub(4),
@@ -72,13 +86,13 @@ pub(crate) fn draw(frame: &mut Frame, app: &App, ui: &mut Ui) {
     };
 
     if let Some(index) = selection {
-      preview::draw(frame, app, index, &mut ui.preview, ui.config.preview_message_lines, pane);
+      preview::draw(frame, app, index, &mut ui.preview, &ui.config, pane, frame_style);
     }
   }
 
-  chrome::hrule(frame.buffer_mut(), foot_rule, None);
+  chrome::hrule(frame.buffer_mut(), foot_rule, None, dim);
 
   let selection = selection.filter(|_| !with_preview).map(|index| &app.sessions[index]);
 
-  chrome::footer(frame, app, ui.status.as_deref(), footer, selection);
+  chrome::footer(frame, app, ui, footer, selection);
 }
