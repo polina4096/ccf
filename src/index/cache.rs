@@ -23,7 +23,7 @@ impl Paths {
   pub(crate) fn locate() -> Result<Self> {
     let home: Utf8PathBuf = dirs::home_dir().context("no home directory")?.try_into()?;
     let cache: Utf8PathBuf = dirs::cache_dir().context("no cache directory")?.try_into()?;
-    let cache = cache.join("ccfind");
+    let cache = cache.join("cff");
 
     return Ok(Self {
       projects: home.join(".claude/projects"),
@@ -114,7 +114,7 @@ impl Cache {
     };
 
     let cache =
-      serde_json::from_slice(&bytes).with_context(|| format!("{path} is unreadable; run `ccfind --reindex`"))?;
+      serde_json::from_slice(&bytes).with_context(|| format!("{path} is unreadable; run `cff --reindex`"))?;
 
     return Ok(cache);
   }
@@ -142,7 +142,7 @@ impl Cache {
       .values()
       .filter_map(|entry| entry.session.clone())
       .map(|mut session| {
-        let content = Content::open(&content::path(content_dir, &session.id)).context("run `ccfind --reindex`")?;
+        let content = Content::open(&content::path(content_dir, &session.id)).context("run `cff --reindex`")?;
         session.content = content;
 
         return Ok(session);

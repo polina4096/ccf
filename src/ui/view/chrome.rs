@@ -99,7 +99,7 @@ pub(crate) fn footer(frame: &mut Frame, app: &App, status: Option<&str>, area: R
   let note = None
     .or(status.map(|status| (status.to_string(), accent)))
     .or(app.indexer.failure.as_ref().map(|why| (format!("indexer stopped: {why}"), accent)))
-    .or((warnings > 0).then(|| (format!("{warnings} files with skipped records, see ccfind --verify"), dim)))
+    .or((warnings > 0).then(|| (format!("{warnings} files with skipped records, see cff --verify"), dim)))
     .or(selection.map(|s| (format!("{}  {}", s.short_cwd(), s.short_id()), dim)));
 
   let Some((note, style)) = note

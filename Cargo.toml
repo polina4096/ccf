@@ -1,12 +1,12 @@
 [package]
-name = "ccfind"
+name = "ccf"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.100"
 description = "Search your local Claude Code conversations from the terminal"
 keywords = ["claude", "tui", "search"]
 categories = ["command-line-utilities"]
-repository = "https://github.com/polina4096/ccfind"
+repository = "https://github.com/polina4096/ccf"
 readme = "README.md"
 license = "Unlicense"
 

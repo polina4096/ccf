@@ -1,4 +1,4 @@
-# ccfind
+# cff
 
 Search your local Claude Code conversations from the terminal.
 
@@ -7,10 +7,10 @@ the chat in its directory. Chats are found by title, project, branch, or any
 words that appear anywhere in the conversation.
 
 ```
-ccfind            open the picker
-ccfind --print    print the chosen session id instead of resuming it
-ccfind --reindex  rebuild the index from scratch
-ccfind --verify   rebuild the index and report any records that could not be read
+cff            open the picker
+cff --print    print the chosen session id instead of resuming it
+cff --reindex  rebuild the index from scratch
+cff --verify   rebuild the index and report any records that could not be read
 ```
 
 ## Keys
@@ -36,7 +36,7 @@ cargo install --path .
 ```
 
 The first launch indexes every session in `~/.claude/projects`. The index
-persists in `~/Library/Caches/ccfind` on macOS or `~/.cache/ccfind` on Linux
+persists in `~/Library/Caches/cff` on macOS or `~/.cache/cff` on Linux
 (safe to delete, rebuilt on the next launch), and only changed chats are
 re-read afterwards, in the background.
 
